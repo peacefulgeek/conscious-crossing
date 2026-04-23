@@ -1,0 +1,76 @@
+{
+  "lastUpdated": "2026-04-23T00:00:00.000Z",
+  "asins": {
+    "0385262191": {
+      "title": "Who Dies? An Investigation of Conscious Living and Conscious Dying",
+      "category": "books",
+      "tags": ["conscious-dying", "death-preparation", "stephen-levine"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "0062508350": {
+      "title": "The Tibetan Book of Living and Dying",
+      "category": "books",
+      "tags": ["tibetan-buddhism", "dying", "bardo"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "1250074657": {
+      "title": "The Five Invitations: Discovering What Death Can Teach Us About Living Fully",
+      "category": "books",
+      "tags": ["conscious-dying", "hospice", "frank-ostaseski"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "1577311728": {
+      "title": "The Grace in Dying: How We Are Transformed Spiritually As We Die",
+      "category": "books",
+      "tags": ["spiritual", "dying", "transformation"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "1590302052": {
+      "title": "Being with Dying: Cultivating Compassion and Fearlessness in the Presence of Death",
+      "category": "books",
+      "tags": ["buddhism", "dying", "compassion"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "1416590323": {
+      "title": "The Four Things That Matter Most: A Book About Living",
+      "category": "books",
+      "tags": ["end-of-life", "relationships", "palliative-care"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "0385267649": {
+      "title": "A Year to Live: How to Live This Year as If It Were Your Last",
+      "category": "books",
+      "tags": ["conscious-dying", "practice", "stephen-levine"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "B00IXZPB5G": {
+      "title": "Tibetan Singing Bowl Set - Meditation Sound Bowl",
+      "category": "meditation-tools",
+      "tags": ["meditation", "sound", "tibetan"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "B07BVTFGB2": {
+      "title": "Premium Meditation Cushion Zafu",
+      "category": "meditation-tools",
+      "tags": ["meditation", "cushion", "practice"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    },
+    "B08FKPB8HH": {
+      "title": "Advance Directive and End-of-Life Planning Workbook",
+      "category": "planning",
+      "tags": ["advance-directive", "planning", "practical"],
+      "status": "valid",
+      "lastChecked": "2026-04-23T00:00:00.000Z"
+    }
+  },
+  "failed": {}
+}
