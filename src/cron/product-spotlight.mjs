@@ -1,14 +1,16 @@
 /**
  * Cron #2 — Saturdays 08:00 UTC
  * Generate a product spotlight article for one item from the verified ASIN catalog.
+ * Uses DeepSeek V4-Pro via OpenAI-compatible API.
  */
 import { runQualityGate } from '../lib/article-quality-gate.mjs';
+import { assignHeroImage } from '../lib/image-assign.mjs';
 import { query } from '../lib/db.mjs';
 import fs from 'fs/promises';
 import path from 'path';
 
 const CACHE_PATH = path.resolve('src/data/verified-asins.json');
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 4;
 
 export async function runProductSpotlight() {
   if (process.env.AUTO_GEN_ENABLED !== 'true') {
@@ -16,9 +18,9 @@ export async function runProductSpotlight() {
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    console.log('[product-spotlight] No ANTHROPIC_API_KEY — skipping');
+    console.log('[product-spotlight] No DEEPSEEK_API_KEY — skipping');
     return;
   }
 
@@ -55,7 +57,7 @@ export async function runProductSpotlight() {
   while (attempts < MAX_ATTEMPTS) {
     attempts++;
     try {
-      const { generateArticle } = await import('../lib/anthropic-generate.mjs');
+      const { generateArticle } = await import('../lib/deepseek-generate.mjs');
       const topic = {
         title: `${product.title}: A Thoughtful Review for Conscious Dying Practice`,
         category: 'practical',
@@ -71,18 +73,21 @@ export async function runProductSpotlight() {
         continue;
       }
 
+      const imageUrl = await assignHeroImage(slug);
+
       await query(`
         INSERT INTO articles (slug, title, body, meta_description, category, tags, image_url, image_alt,
-          reading_time, author, published_at, word_count, quality_gate_passed, quality_gate_failures, asins_used)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Kalesh',NOW(),$10,$11,$12,$13)
+          reading_time, author, status, queued_at, published_at,
+          word_count, quality_gate_passed, quality_gate_failures, asins_used)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Kalesh','published',NOW(),NOW(),$10,$11,$12,$13)
         ON CONFLICT (slug) DO NOTHING
       `, [
-        slug, article.title, article.body, article.metaDescription,
+        slug, article.title, gate.body, article.metaDescription,
         'practical', JSON.stringify(['product-review', 'tools']),
-        `https://meditative-dying.b-cdn.net/articles/practical-planning.webp`,
+        imageUrl,
         `${product.title} - The Conscious Crossing`,
-        Math.ceil(article.body.split(' ').length / 200),
-        article.wordCount, true, JSON.stringify([]),
+        Math.ceil(gate.wordCount / 200),
+        gate.wordCount, true, JSON.stringify(gate.failures),
         JSON.stringify([product.asin])
       ]);
 
@@ -96,4 +101,6 @@ export async function runProductSpotlight() {
   }
 
   console.error('[product-spotlight] All attempts failed');
+  await query('INSERT INTO cron_log (job_name, status, details) VALUES ($1,$2,$3)',
+    ['product-spotlight', 'failed', JSON.stringify({ slug, attempts })]).catch(() => {});
 }

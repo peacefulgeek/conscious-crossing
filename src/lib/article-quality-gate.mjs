@@ -1,38 +1,46 @@
+/**
+ * Paul Voice Gate — Non-negotiable quality gate for every article.
+ * Spec: ADDENDUMSCOPENOCLAUDE.md Section 6
+ */
+
 import { countAmazonLinks, extractAsinsFromText } from './amazon-verify.mjs';
 
-const AI_FLAGGED_WORDS = [
-  'delve','tapestry','paradigm','synergy','leverage','unlock','empower',
-  'utilize','pivotal','embark','underscore','paramount','seamlessly',
-  'robust','beacon','foster','elevate','curate','curated','bespoke',
-  'resonate','harness','intricate','plethora','myriad','comprehensive',
-  'transformative','groundbreaking','innovative','cutting-edge','revolutionary',
-  'state-of-the-art','ever-evolving','game-changing','next-level','world-class',
-  'unparalleled','unprecedented','remarkable','extraordinary','exceptional',
-  'profound','holistic','nuanced','multifaceted','stakeholders',
-  'ecosystem','landscape','realm','sphere','domain',
-  'arguably','notably','crucially','importantly','essentially',
-  'fundamentally','inherently','intrinsically','substantively',
-  'streamline','optimize','facilitate','amplify','catalyze',
-  'propel','spearhead','orchestrate','navigate','traverse',
-  'furthermore','moreover','additionally','consequently','subsequently',
-  'thereby','thusly','wherein','whereby'
+// ── 1. Banned Words (exact list from spec) ────────────────────────────────────
+const BANNED_WORDS = [
+  'utilize', 'delve', 'tapestry', 'landscape', 'paradigm', 'synergy',
+  'leverage', 'unlock', 'empower', 'pivotal', 'embark', 'underscore',
+  'paramount', 'seamlessly', 'robust', 'beacon', 'foster', 'elevate',
+  'curate', 'curated', 'bespoke', 'resonate', 'harness', 'intricate',
+  'plethora', 'myriad', 'groundbreaking', 'innovative', 'cutting-edge',
+  'state-of-the-art', 'game-changer', 'ever-evolving', 'rapidly-evolving',
+  'stakeholders', 'navigate', 'ecosystem', 'framework', 'comprehensive',
+  'transformative', 'holistic', 'nuanced', 'multifaceted', 'profound',
+  'furthermore',
 ];
 
-const AI_FLAGGED_PHRASES = [
-  "it's important to note that","it's worth noting that","it's worth mentioning",
-  "it's crucial to","it is essential to","in conclusion,","in summary,","to summarize,",
-  "a holistic approach","unlock your potential","unlock the power",
-  "in the realm of","in the world of","dive deep into","dive into","delve into",
-  "at the end of the day","in today's fast-paced world","in today's digital age",
-  "in today's modern world","in this digital age","when it comes to",
-  "navigate the complexities","a testament to","speaks volumes",
-  "the power of","the beauty of","the art of","the journey of","the key lies in",
-  "plays a crucial role","plays a vital role","plays a significant role","plays a pivotal role",
-  "a wide array of","a wide range of","a plethora of","a myriad of",
-  "stands as a","serves as a","acts as a","has emerged as",
-  "continues to evolve","has revolutionized","cannot be overstated",
-  "it goes without saying","needless to say","last but not least","first and foremost"
+// ── 2. Banned Phrases (exact list from spec) ──────────────────────────────────
+const BANNED_PHRASES = [
+  "it's important to note that",
+  "it's worth noting that",
+  "in conclusion",
+  "in summary",
+  "a holistic approach",
+  "in the realm of",
+  "dive deep into",
+  "at the end of the day",
+  "in today's fast-paced world",
+  "plays a crucial role",
 ];
+
+// ── Amazon link regex ─────────────────────────────────────────────────────────
+const AMAZON_LINK_RE = /href="https:\/\/www\.amazon\.com\/dp\/[A-Z0-9]{10}\?tag=spankyspinola-20"/gi;
+
+/**
+ * Pre-process: replace em-dashes with " - " before checking.
+ */
+export function normalizeEmDashes(text) {
+  return text.replace(/\u2014|\u2013/g, ' - ');
+}
 
 export function countWords(text) {
   const stripped = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -40,95 +48,83 @@ export function countWords(text) {
 }
 
 export function hasEmDash(text) {
-  return text.includes('\u2014');
+  return /\u2014|\u2013/.test(text);
 }
 
-export function findFlaggedWords(text) {
-  const stripped = text.replace(/<[^>]+>/g, ' ').toLowerCase();
-  const found = [];
-  for (const w of AI_FLAGGED_WORDS) {
-    const pat = w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    if (new RegExp(`\\b${pat}\\b`, 'i').test(stripped)) found.push(w);
-  }
-  return found;
-}
-
-export function findFlaggedPhrases(text) {
-  const stripped = text.replace(/<[^>]+>/g, ' ').toLowerCase().replace(/\s+/g, ' ');
-  return AI_FLAGGED_PHRASES.filter(p => stripped.includes(p));
-}
-
-export function voiceSignals(text) {
-  const stripped = text.replace(/<[^>]+>/g, ' ');
-  const lower = stripped.toLowerCase();
-  const contractions = (lower.match(/\b\w+'(s|re|ve|d|ll|m|t)\b/g) || []).length;
-  const directAddress = (lower.match(/\byou('re|r|rself|)?\b/g) || []).length;
-  const firstPerson = (lower.match(/\b(i|i'm|i've|i'd|i'll|my|me|mine)\b/g) || []).length;
-  const sentences = stripped.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
-  const lengths = sentences.map(s => s.split(/\s+/).length);
-  const avg = lengths.reduce((a, b) => a + b, 0) / (lengths.length || 1);
-  const variance = lengths.reduce((sum, len) => sum + Math.pow(len - avg, 2), 0) / (lengths.length || 1);
-  const stdDev = Math.sqrt(variance);
-  const shortSentences = lengths.filter(l => l <= 6).length;
-  const markers = [
-    /\bhere's the thing\b/i, /\blook,\s/i, /\bhonestly,?\s/i, /\btruth is\b/i,
-    /\bthe truth\b/i, /\bi'll tell you\b/i, /\bthink about it\b/i, /\bthat said\b/i,
-    /\bbut here's\b/i, /\bso yeah\b/i, /\bkind of\b/i, /\bsort of\b/i, /\byou know\b/i
-  ];
-  const markerCount = markers.filter(r => r.test(stripped)).length;
-  return {
-    contractions, directAddress, firstPerson,
-    sentenceStdDev: +stdDev.toFixed(1),
-    shortSentences, conversationalMarkers: markerCount
-  };
-}
-
-export function runQualityGate(articleBody) {
+/**
+ * Run the full Paul Voice Gate.
+ * @param {string} rawBody - Raw article body (HTML allowed)
+ * @returns {{ passed: boolean, failures: string[], warnings: string[], body: string, wordCount: number, amazonLinks: number, asins: string[] }}
+ */
+export function runQualityGate(rawBody) {
   const failures = [];
   const warnings = [];
 
-  const words = countWords(articleBody);
-  if (words < 1200) failures.push(`word-count-too-low:${words}`);
-  if (words > 2500) failures.push(`word-count-too-high:${words}`);
+  // Step 1: normalize em-dashes
+  const body = normalizeEmDashes(rawBody);
 
-  const amzCount = countAmazonLinks(articleBody);
-  if (amzCount < 3) failures.push(`amazon-links-too-few:${amzCount}`);
-  if (amzCount > 4) failures.push(`amazon-links-too-many:${amzCount}`);
-
-  if (hasEmDash(articleBody)) failures.push('contains-em-dash');
-
-  const bw = findFlaggedWords(articleBody);
-  if (bw.length > 0) failures.push(`ai-flagged-words:${bw.join(',')}`);
-
-  const bp = findFlaggedPhrases(articleBody);
-  if (bp.length > 0) failures.push(`ai-flagged-phrases:${bp.join('|')}`);
-
-  const voice = voiceSignals(articleBody);
-  const per1k = (n) => (n / (words || 1)) * 1000;
-
-  if (per1k(voice.contractions) < 4) {
-    failures.push(`contractions-too-few:${voice.contractions}(${per1k(voice.contractions).toFixed(1)}/1k)`);
+  // Step 2: check for surviving em-dashes
+  if (hasEmDash(body)) {
+    failures.push('em-dash-survived-normalization');
   }
-  if (voice.directAddress === 0 && voice.firstPerson === 0) {
-    failures.push('no-direct-address-or-first-person');
+
+  // Step 3: plain text for word/phrase checks
+  const plain = body.replace(/<[^>]+>/g, ' ').toLowerCase().replace(/\s+/g, ' ');
+
+  // Step 4: banned words (word boundary match)
+  for (const word of BANNED_WORDS) {
+    const escaped = word.replace(/[-]/g, '[- ]');
+    const re = new RegExp(`\\b${escaped}\\b`, 'i');
+    if (re.test(plain)) {
+      failures.push(`banned-word:"${word}"`);
+    }
   }
-  if (voice.sentenceStdDev < 4) {
-    failures.push(`sentence-variance-too-low:${voice.sentenceStdDev}`);
+
+  // Step 5: banned phrases (string match)
+  for (const phrase of BANNED_PHRASES) {
+    if (plain.includes(phrase.toLowerCase())) {
+      failures.push(`banned-phrase:"${phrase}"`);
+    }
   }
-  if (voice.shortSentences < 2) {
-    failures.push(`too-few-short-sentences:${voice.shortSentences}`);
+
+  // Step 6: word count
+  const wordCount = countWords(body);
+  if (wordCount < 1200) {
+    failures.push(`word-count-too-low:${wordCount}(min:1200)`);
   }
-  if (voice.conversationalMarkers < 2) {
-    warnings.push(`conversational-markers-low:${voice.conversationalMarkers}`);
+  if (wordCount > 2500) {
+    failures.push(`word-count-too-high:${wordCount}(max:2500)`);
+  }
+
+  // Step 7: Amazon affiliate links (exactly 3 or 4)
+  const linkMatches = body.match(AMAZON_LINK_RE) || [];
+  const amazonLinks = linkMatches.length;
+  if (amazonLinks < 3 || amazonLinks > 4) {
+    failures.push(`amazon-link-count:${amazonLinks}(must-be-3-or-4)`);
+  }
+
+  // Step 8: voice signals (warnings only, not failures)
+  const contractionCount = (plain.match(/\b\w+'(s|re|ve|d|ll|m|t)\b/g) || []).length;
+  const per1k = (n) => (n / (wordCount || 1)) * 1000;
+  if (per1k(contractionCount) < 4) {
+    warnings.push(`contractions-low:${contractionCount}(${per1k(contractionCount).toFixed(1)}/1k)`);
+  }
+
+  const dialogueMarkers = [
+    /right\?!/i, /know what i mean\?/i, /does that land\?/i, /how does that make you feel\?/i,
+  ];
+  const markerCount = dialogueMarkers.filter(r => r.test(body)).length;
+  if (markerCount < 2) {
+    warnings.push(`dialogue-markers-low:${markerCount}(want:2-3)`);
   }
 
   return {
     passed: failures.length === 0,
     failures,
     warnings,
-    wordCount: words,
-    amazonLinks: amzCount,
-    asins: extractAsinsFromText(articleBody),
-    voice
+    body,
+    wordCount,
+    amazonLinks,
+    asins: extractAsinsFromText(body),
   };
 }

@@ -31,24 +31,15 @@ services:
       - key: AMAZON_TAG
         value: spankyspinola-20
         scope: RUN_TIME
+      # Set to the date the site went live (ISO format).
+      # Used to determine Phase 1 (3x/day) vs Phase 2 (1x/day) publishing schedule.
+      - key: SITE_LAUNCH_DATE
+        value: "2025-05-01T00:00:00Z"
+        scope: RUN_TIME
+      # Secrets — set via DigitalOcean dashboard or doctl
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
-      - key: GH_PAT
-        scope: RUN_TIME
-        type: SECRET
-      - key: ANTHROPIC_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: FAL_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: BUNNY_STORAGE_ZONE
-        scope: RUN_TIME
-        type: SECRET
-      - key: BUNNY_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: BUNNY_PULL_ZONE_URL
+      - key: DEEPSEEK_API_KEY
         scope: RUN_TIME
         type: SECRET

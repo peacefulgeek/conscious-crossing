@@ -10,9 +10,9 @@ export async function runRefreshQuarterly() {
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    console.log('[refresh-quarterly] No ANTHROPIC_API_KEY — skipping');
+    console.log('[refresh-quarterly] No DEEPSEEK_API_KEY — skipping');
     return;
   }
 
@@ -20,10 +20,10 @@ export async function runRefreshQuarterly() {
 
   try {
     // Get 3 articles that failed quality gate or are oldest
-    const { rows: articles } = await query(`
+      const { rows: articles } = await query(`
       SELECT id, slug, title, category, tags
       FROM articles
-      WHERE quality_gate_passed = false
+      WHERE quality_gate_passed = false AND status = 'published'
       ORDER BY published_at ASC
       LIMIT 3
     `);
@@ -35,7 +35,7 @@ export async function runRefreshQuarterly() {
       return;
     }
 
-    const { generateArticle } = await import('../lib/anthropic-generate.mjs');
+    const { generateArticle } = await import('../lib/deepseek-generate.mjs');
     const { runQualityGate } = await import('../lib/article-quality-gate.mjs');
 
     let regenerated = 0;

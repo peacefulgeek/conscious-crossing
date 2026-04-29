@@ -26,7 +26,7 @@ await build({
   outfile: path.join(root, 'dist/index.js'),
   external: [
     'express', 'compression', 'serve-static', 'pg', 'node-cron',
-    'vite', '@anthropic-ai/sdk', 'react', 'react-dom', 'react-router-dom',
+    'vite', 'react', 'react-dom', 'react-router-dom',
     './dist/server/entry-server.js',
     '../dist/server/entry-server.js',
   ],

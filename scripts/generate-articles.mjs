@@ -4,7 +4,7 @@
  * Usage: node scripts/generate-articles.mjs [--start=0] [--end=29] [--dry-run]
  */
 
-import { generateArticle } from '../src/lib/anthropic-generate.mjs';
+import { generateArticle } from '../src/lib/deepseek-generate.mjs';
 import { runQualityGate } from '../src/lib/article-quality-gate.mjs';
 import { query } from '../src/lib/db.mjs';
 import { execSync } from 'child_process';

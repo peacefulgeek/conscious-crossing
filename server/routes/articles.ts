@@ -3,6 +3,9 @@ import { getDb } from '../db.js';
 
 export const articlesRouter = express.Router();
 
+// ── CRITICAL: ALL public routes filter by status = 'published' ────────────────
+// Queued articles MUST NEVER leak to the frontend.
+
 articlesRouter.get('/', async (req, res) => {
   try {
     const db = getDb();
@@ -11,7 +14,9 @@ articlesRouter.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const category = req.query.category as string;
 
-    let query = `SELECT id, slug, title, meta_description, category, tags, image_url, image_alt, reading_time, author, published_at, word_count FROM articles WHERE published_at IS NOT NULL`;
+    let query = `SELECT id, slug, title, meta_description, category, tags, image_url, image_alt, reading_time, author, published_at, word_count
+                 FROM articles
+                 WHERE status = 'published' AND published_at IS NOT NULL`;
     const params: any[] = [];
 
     if (category) {
@@ -25,8 +30,8 @@ articlesRouter.get('/', async (req, res) => {
     const { rows } = await db.query(query, params);
 
     const countQuery = category
-      ? `SELECT COUNT(*) FROM articles WHERE published_at IS NOT NULL AND category = $1`
-      : `SELECT COUNT(*) FROM articles WHERE published_at IS NOT NULL`;
+      ? `SELECT COUNT(*) FROM articles WHERE status = 'published' AND published_at IS NOT NULL AND category = $1`
+      : `SELECT COUNT(*) FROM articles WHERE status = 'published' AND published_at IS NOT NULL`;
     const countParams = category ? [category] : [];
     const { rows: countRows } = await db.query(countQuery, countParams);
     const total = parseInt(countRows[0].count);
@@ -46,7 +51,7 @@ articlesRouter.get('/related/:slug', async (req, res) => {
   try {
     const db = getDb();
     const { rows: current } = await db.query(
-      `SELECT category, tags FROM articles WHERE slug = $1`,
+      `SELECT category, tags FROM articles WHERE slug = $1 AND status = 'published'`,
       [req.params.slug]
     );
     if (current.length === 0) return res.json([]);
@@ -55,7 +60,9 @@ articlesRouter.get('/related/:slug', async (req, res) => {
     const { rows } = await db.query(
       `SELECT id, slug, title, meta_description, image_url, image_alt, reading_time, category
        FROM articles
-       WHERE slug != $1 AND published_at IS NOT NULL
+       WHERE slug != $1
+         AND status = 'published'
+         AND published_at IS NOT NULL
          AND (category = $2 OR tags && $3::text[])
        ORDER BY published_at DESC LIMIT 3`,
       [req.params.slug, category, tags || []]
@@ -71,7 +78,7 @@ articlesRouter.get('/:slug', async (req, res) => {
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT * FROM articles WHERE slug = $1 AND published_at IS NOT NULL`,
+      `SELECT * FROM articles WHERE slug = $1 AND status = 'published' AND published_at IS NOT NULL`,
       [req.params.slug]
     );
     if (rows.length === 0) {

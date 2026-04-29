@@ -7,7 +7,7 @@ sitemapRouter.get('/', async (req, res) => {
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT slug, published_at, updated_at FROM articles WHERE published_at IS NOT NULL ORDER BY published_at DESC`
+      `SELECT slug, published_at, updated_at FROM articles WHERE status = 'published' AND published_at IS NOT NULL ORDER BY published_at DESC`
     );
 
     const domain = 'https://meditativedying.com';
