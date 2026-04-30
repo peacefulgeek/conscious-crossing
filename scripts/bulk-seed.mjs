@@ -10,10 +10,10 @@
 import { generateArticle } from '../src/lib/deepseek-generate.mjs';
 import { runQualityGate } from '../src/lib/article-quality-gate.mjs';
 import { assignHeroImage } from '../src/lib/image-assign.mjs';
-import pg from 'pg';
+import { query } from '../src/lib/db.mjs';
 
-const { Pool } = pg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+
+
 
 const MAX_ATTEMPTS = 4;
 const DELAY_BETWEEN_MS = 1200; // ~50 req/min, well within DeepSeek limits
@@ -556,12 +556,12 @@ function slugify(title) {
 }
 
 async function getPublishedCount() {
-  const { rows } = await pool.query(`SELECT COUNT(*) FROM articles WHERE status = 'published'`);
+  const { rows } = await query(`SELECT COUNT(*) FROM articles WHERE status = 'published'`);
   return parseInt(rows[0].count);
 }
 
 async function articleExists(slug) {
-  const { rows } = await pool.query('SELECT id FROM articles WHERE slug = $1', [slug]);
+  const { rows } = await query('SELECT id FROM articles WHERE slug = $1', [slug]);
   return rows.length > 0;
 }
 
@@ -600,13 +600,13 @@ async function seed() {
         const imageUrl = await assignHeroImage(slug);
         const readingTime = Math.ceil(gate.wordCount / 200);
 
-        await pool.query(`
+        await query(`
           INSERT INTO articles (
             slug, title, body, meta_description, category, tags,
             image_url, image_alt, reading_time, author,
             status, queued_at, published_at,
             word_count, quality_gate_passed, quality_gate_failures, asins_used
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Kalesh','queued',NOW(),NULL,$10,$11,$12,$13)
+          ) VALUES ($1,$2,$3,$4,$5,$6::text[],$7,$8,$9,'Kalesh','queued',NOW(),NULL,$10,$11,$12::jsonb,$13::text[])
           ON CONFLICT (slug) DO NOTHING
         `, [
           slug,
@@ -614,14 +614,14 @@ async function seed() {
           gate.body,
           article.metaDescription,
           topic.category,
-          JSON.stringify(topic.tags),
+          topic.tags,
           imageUrl,
           `${article.title} - The Conscious Crossing`,
           readingTime,
           gate.wordCount,
           true,
-          JSON.stringify(gate.failures),
-          JSON.stringify(gate.asins),
+          JSON.stringify(Array.isArray(gate.failures) ? gate.failures : []),
+          Array.isArray(gate.asins) ? gate.asins : (article.asinsUsed || []),
         ]);
 
         console.log(`  QUEUED: ${slug} (${gate.wordCount} words, ${gate.amazonLinks} links)`);
@@ -653,7 +653,7 @@ async function seed() {
 
   const publishedCount = await getPublishedCount();
   console.log(`  Currently published: ${publishedCount}`);
-  await pool.end();
+  
 }
 
 seed().catch(err => {
