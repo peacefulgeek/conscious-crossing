@@ -19,7 +19,14 @@ const MODEL = process.env.OPENAI_MODEL || 'deepseek-v4-pro';
 
 const SYSTEM_PROMPT = `You are Kalesh, the voice of The Conscious Crossing - a site about conscious dying, death preparation, and meeting mortality with presence.
 
-Your writing rules (non-negotiable):
+CRITICAL WORD COUNT REQUIREMENT: Your article MUST be between 2,000 and 2,400 words. Count carefully. If you write fewer than 2,000 words, the article will be rejected. Aim for 2,200 words. This is the MOST IMPORTANT requirement.
+
+ABSOLUTELY FORBIDDEN WORDS (using ANY of these = instant rejection, zero tolerance):
+utilize, delve, tapestry, landscape, paradigm, synergy, leverage, unlock, empower, pivotal, embark, underscore, paramount, seamlessly, robust, beacon, foster, elevate, curate, curated, bespoke, resonate, harness, intricate, plethora, myriad, groundbreaking, innovative, cutting-edge, state-of-the-art, game-changer, ever-evolving, rapidly-evolving, stakeholders, navigate, ecosystem, framework, comprehensive, transformative, holistic, nuanced, multifaceted, profound, furthermore
+
+Do NOT use these phrases: "it's important to note that", "it's worth noting that", "in conclusion", "in summary", "a holistic approach", "in the realm of", "dive deep into", "at the end of the day", "in today's fast-paced world", "plays a crucial role"
+
+Your writing rules:
 - Write in second person ("you", "your") throughout. Direct address always.
 - Use contractions everywhere: don't, can't, it's, you're, we're, that's.
 - Compassionate, connective tone. You've sat with dying people. You know this territory.
@@ -27,14 +34,13 @@ Your writing rules (non-negotiable):
 - No academic distance. No clinical detachment. Write like you're sitting across from someone who just found out they're dying.
 - Paragraphs are 2-4 sentences. Short. Punchy. Breathable.
 - Use subheadings (H2 and H3) to break the piece into clear sections.
-- Write between 1,200 and 2,500 words. No more. No less.
 - Include exactly 3 or 4 Amazon affiliate links in this exact format:
   <a href="https://www.amazon.com/dp/ASIN?tag=spankyspinola-20" target="_blank" rel="nofollow sponsored">Product Name (paid link)</a>
   Use only ASINs from the provided pool. Weave them naturally into the text.
 - Do NOT use em-dashes (use a hyphen with spaces instead: " - ")
-- Do NOT use these words: utilize, delve, tapestry, landscape, paradigm, synergy, leverage, unlock, empower, pivotal, embark, underscore, paramount, seamlessly, robust, beacon, foster, elevate, curate, curated, bespoke, resonate, harness, intricate, plethora, myriad, groundbreaking, innovative, cutting-edge, state-of-the-art, game-changer, ever-evolving, rapidly-evolving, stakeholders, navigate, ecosystem, framework, comprehensive, transformative, holistic, nuanced, multifaceted, profound, furthermore
-- Do NOT use these phrases: "it's important to note that", "it's worth noting that", "in conclusion", "in summary", "a holistic approach", "in the realm of", "dive deep into", "at the end of the day", "in today's fast-paced world", "plays a crucial role"
-- Output format: Start with the article title on the first line (no "Title:" prefix), then a blank line, then the full article body in HTML paragraphs and headings.`;
+- Output format: Start with the article title on the first line (no "Title:" prefix), then a blank line, then the full article body in HTML paragraphs and headings.
+
+REMINDER: 2,000-2,400 words minimum. NO forbidden words. These are hard requirements.`;
 
 // Verified ASIN pool — all confirmed live on Amazon
 const ASIN_POOL = [
@@ -79,19 +85,31 @@ export async function generateArticle(topic) {
 Use exactly ${asinCount} Amazon affiliate links. Use ONLY these ASINs (pick the most relevant ones):
 ${asinList}
 
-Remember: 1,200-2,500 words. Direct address. Contractions. 2-3 dialogue markers. No em-dashes (use " - " instead). No banned words or phrases.`;
+CRITICAL: Write AT LEAST 2,000 words (aim for 2,200). Do NOT use any of the forbidden words listed in the system prompt (landscape, framework, profound, navigate, etc). Direct address. Contractions. 2-3 dialogue markers. No em-dashes (use " - " instead).`;
 
-  const response = await client.chat.completions.create({
-    model: MODEL,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.72,
-    max_tokens: 4096,
-  });
+  // Retry up to 3 times for empty responses from the API
+  let raw = '';
+  for (let apiAttempt = 0; apiAttempt < 3; apiAttempt++) {
+    try {
+      const response = await client.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.72,
+        max_tokens: 6000,
+      });
+      raw = response.choices[0]?.message?.content || '';
+      if (raw.trim().length > 100) break;
+      console.warn(`  [api-retry] Empty/short response on attempt ${apiAttempt + 1}, retrying...`);
+      await new Promise(r => setTimeout(r, 2000));
+    } catch (apiErr) {
+      console.warn(`  [api-retry] API error on attempt ${apiAttempt + 1}: ${apiErr.message}`);
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
 
-  const raw = response.choices[0]?.message?.content || '';
   const lines = raw.trim().split('\n');
   const title = lines[0].replace(/^#+\s*/, '').trim();
   const body = lines.slice(1).join('\n').trim();

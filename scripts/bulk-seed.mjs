@@ -16,7 +16,7 @@ import { query } from '../src/lib/db.mjs';
 
 
 const MAX_ATTEMPTS = 4;
-const DELAY_BETWEEN_MS = 1200; // ~50 req/min, well within DeepSeek limits
+const DELAY_BETWEEN_MS = 3000; // ~20 req/min, within DeepSeek limits
 
 // ── 500 Unique Conscious Dying Topics ────────────────────────────────────────
 const TOPICS = [
@@ -630,7 +630,7 @@ async function seed() {
         break;
       } catch (err) {
         console.error(`  Attempt ${attempt}/${MAX_ATTEMPTS} ERROR: ${err.message}`);
-        if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 2000));
+        if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 3000));
       }
     }
 
